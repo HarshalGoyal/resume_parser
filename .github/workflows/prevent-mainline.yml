@@ -19,9 +19,10 @@ jobs:
           echo "Author: $AUTHOR_NAME"
           echo "Committer: $COMMITTER_NAME"
           echo "Co-authors: $COAUTHORS"
-          
+
           if [ "$AUTHOR_NAME" = "HarshalGoyal" ] && [ -z "$COAUTHORS" ] && [ "$COMMITTER_NAME" = "HarshalGoyal" || "$COMMITTER_NAME" = "GitHub" ]; then
             echo "✅ Single commit by HarshalGoyal via Github, skipping failure."
+
             exit 0
           else
             echo "❌ Direct pushes to mainline are not allowed."
