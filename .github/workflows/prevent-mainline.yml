@@ -19,7 +19,7 @@ jobs:
           echo "Author: $AUTHOR_NAME"
           echo "Committer: $COMMITTER_NAME"
           echo "Co-authors: $COAUTHORS"
-
+          
           if [ "$AUTHOR_NAME" = "HarshalGoyal" ] && [ -z "$COAUTHORS" ] && [ "$COMMITTER_NAME" = "HarshalGoyal" ]; then
             echo "✅ Single commit by HarshalGoyal, skipping failure."
             exit 0
