@@ -7,10 +7,23 @@ on:
 
 jobs:
   block-direct-push:
-    name : Prevent Direct Push
+    name: Prevent Direct Push
     runs-on: ubuntu-latest
     steps:
-      - name: Fail if push is direct
+      - name: Check commit authors
         run: |
-          echo "❌ Direct pushes to mainline are not allowed."
-          exit 1
+          AUTHOR_NAME=$(jq -r '.head_commit.author.name' $GITHUB_EVENT_PATH)
+          COMMITTER_NAME=$(jq -r '.head_commit.committer.name' $GITHUB_EVENT_PATH)
+          COAUTHORS=$(jq -r '.head_commit.message' $GITHUB_EVENT_PATH | grep -i "Co-authored-by" || true)
+
+          echo "Author: $AUTHOR_NAME"
+          echo "Committer: $COMMITTER_NAME"
+          echo "Co-authors: $COAUTHORS"
+
+          if [ "$AUTHOR_NAME" = "HarshalGoyal" ] && [ -z "$COAUTHORS" ]; then
+            echo "✅ Single commit by HarshalGoyal, skipping failure."
+            exit 0
+          else
+            echo "❌ Direct pushes to mainline are not allowed."
+            exit 1
+          fi
