@@ -1,0 +1,16 @@
+name: Prevent Direct Mainline Commits
+
+on:
+  push:
+    branches:
+      - mainline
+
+jobs:
+  block-direct-push:
+    name : Prevent Direct Push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if push is direct
+        run: |
+          echo "❌ Direct pushes to mainline are not allowed."
+          exit 1
