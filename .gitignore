@@ -100,7 +100,7 @@ uvicorn.log
 # ============================================
 # Local Databases
 # ============================================
-
+temp_working_storage_area/
 *.db
 *.sqlite3
 
