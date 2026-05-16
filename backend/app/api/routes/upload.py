@@ -1,3 +1,4 @@
+
 from fastapi import APIRouter,File,UploadFile,HTTPException #type: ignore
 from pathlib import Path
 from uuid import uuid4
@@ -5,6 +6,7 @@ from uuid import uuid4
 from app.core.logging import AppLogger
 from app.storage.session_repository import SessionRepository
 from app.services.resume_parsing_service import ResumeParsingService
+from app.core.config import settings
 
 
 router = APIRouter(prefix="/resume", tags=["Resume upload"])
@@ -13,11 +15,12 @@ logger = AppLogger("ResumeUploader")
 
 session_repository = SessionRepository()
 
+
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
-STORAGE_ROOT = (PROJECT_ROOT /"storage" /"session_data")
+STORAGE_ROOT = Path(settings.storage_path)
 
-STORAGE_ROOT.mkdir(parents=True,exist_ok=True)
+STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 @router.post("/upload")
@@ -43,6 +46,13 @@ async def upload_resume(file: UploadFile = File(...)):
         )
 
     file_data = await file.read()
+
+    if len(file_data) > settings.upload_max_size:
+        logger.error(f"File size {len(file_data)} bytes exceeds maximum allowed size {settings.upload_max_size} bytes")
+        raise HTTPException(
+            status_code=400,
+            detail=f"File size exceeds maximum allowed size of {settings.upload_max_size / 1024 / 1024:.2f} MB"
+        )
 
     logger.debug( f"Received file={file.filename} size={len(file_data)} bytes")
 

@@ -7,7 +7,6 @@ from app.models.resume_processing_stages import ResumeProcessingStages
 from app.storage.session_repository import SessionRepository
 from app.storage.file_store import FileStore
 
-
 class ResumeParsingService:
     def __init__(self):
         self.loggr = AppLogger("ResumeParsingService")
