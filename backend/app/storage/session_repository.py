@@ -31,74 +31,78 @@ class SessionRepository:
 
     async def create_upload(self,session_id: str,file_name: str, file_data: bytes) -> dict:
 
-        upload_id = str(uuid.uuid4())
+            upload_id = str(uuid.uuid4())
 
-        logger.info(f"Creating upload_id={upload_id} for session_id={session_id}")
+            logger.info(f"Creating upload_id={upload_id} for session_id={session_id}")
 
-        saved_file_path = self.file_store.save_file(session_id=session_id,uploaded_file_id=upload_id,
-                                                        file_name=file_name,file_data=file_data)
-        logger.info (f"got file: {file_name} ")
-        metadata = {
+            saved_file_path = self.file_store.save_file(session_id=session_id,uploaded_file_id=upload_id,
+                                                            file_name=file_name,file_data=file_data)
+            logger.info (f"got file: {file_name} ")
+            metadata = {
 
-            "session_id": session_id,
+                "session_id": session_id,
 
-            "upload_id": upload_id,
+                "upload_id": upload_id,
 
-            "file_name": file_name,
+                "file_name": file_name,
 
-            "saved_file_path": saved_file_path,
+                "saved_file_path": saved_file_path,
 
-            "status": ResumeProcessingStages.UPLOADED.value,
+                "status": ResumeProcessingStages.UPLOADED.value,
 
-            "current_stage": ResumeProcessingStages.UPLOADED.value,
+                "current_stage": ResumeProcessingStages.UPLOADED.value,
 
-            "retry_count": 0,
+                "retry_count": 0,
 
-            "created_at": datetime.now().isoformat(),
+                "created_at": datetime.now().isoformat(),
 
-            "updated_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
 
-            "parsed_text_path": None,
+                "parsed_text_path": None,
 
-            "evaluation_path": None,
+                "evaluation_path": None,
 
-            "error_message": None
-        }
+                "error_message": None
+            }
 
-        self.file_store.save_json( session_id=session_id,uploaded_file_id=upload_id,
-                                  file_name="metadata.json",data=metadata)
+            self.file_store.save_json( session_id=session_id,uploaded_file_id=upload_id,
+                                      file_name="metadata.json",data=metadata)
 
-        cache_key = (self.__build_cache_key(session_id,upload_id))
+            cache_key = session_id
+        
+            session_cache = self.memory_store.get(cache_key) or {}
+            session_cache[upload_id] = metadata
+            self.memory_store.set(cache_key, session_cache)
 
-        self.memory_store.set(cache_key,metadata)
+            logger.info(f"Upload created successfully upload_id={upload_id}")
 
-        logger.info(f"Upload created successfully upload_id={upload_id}")
-
-        return metadata
+            return metadata
 
 
     async def get_upload(self,session_id: str,upload_id: str) -> dict | None:
 
-        cache_key = (self.__build_cache_key(session_id,upload_id))
+            cache_key = session_id
 
-        cached_data = (self.memory_store.get(cache_key))
+            session_cache = self.memory_store.get(cache_key)
 
-        if cached_data is not None:
-            logger.info(f"Cache hit for upload_id={upload_id}")
+            if session_cache and upload_id in session_cache:
+                logger.info(f"Cache hit for upload_id={upload_id}")
+                return session_cache[upload_id]
 
-            return cached_data
-
-        logger.info(f"Cache miss for upload_id={upload_id}")
+            logger.info(f"Cache miss for upload_id={upload_id}")
         
-        metadata = self.file_store.read_json( session_id=session_id,
-            uploaded_file_id=upload_id,file_name="metadata.json")
+            metadata = self.file_store.read_json(session_id=session_id, uploaded_file_id=upload_id, file_name="metadata.json")
 
-        if metadata is None:
-            logger.error(f"Upload metadata not found for upload_id={upload_id}")
-            return None
-        
-        self.memory_store.set(cache_key,metadata)
-        return metadata
+            if metadata is None:
+                logger.error(f"Upload metadata not found for upload_id={upload_id}")
+                return None
+
+            # Update the session cache with the new metadata
+            session_cache = session_cache or {}
+            session_cache[upload_id] = metadata
+            self.memory_store.set(cache_key, session_cache)
+
+            return metadata
 
 
     async def update_stage(self,session_id: str,upload_id: str,stage: ResumeProcessingStages) -> dict | None:
@@ -138,7 +142,7 @@ class SessionRepository:
 
         metadata["retry_count"] += 1
 
-        metadata["updated_at"] = (datetime.isoformat())
+        metadata["updated_at"] = (datetime.now().isoformat())
 
         self.__persist_metadata(session_id,upload_id,metadata)
 
@@ -149,11 +153,13 @@ class SessionRepository:
 
     def __persist_metadata(self,session_id: str,upload_id: str,metadata: dict):
 
-        self.file_store.save_json(session_id=session_id,uploaded_file_id=upload_id,
-                                  file_name="metadata.json",data=metadata)
-        cache_key = (self.__build_cache_key(session_id,upload_id))
-
-        self.memory_store.set(cache_key,metadata)
+            self.file_store.save_json(session_id=session_id, uploaded_file_id=upload_id,
+                                      file_name="metadata.json", data=metadata)
+            cache_key = session_id
+        
+            session_cache = self.memory_store.get(cache_key) or {}
+            session_cache[upload_id] = metadata
+            self.memory_store.set(cache_key, session_cache)
 
     def __build_cache_key(self,session_id: str,upload_id: str) -> str:
         return (f"{session_id}:{upload_id}")

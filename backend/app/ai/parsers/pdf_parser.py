@@ -32,8 +32,8 @@ class PDFParser:
                 for line in block["lines"]:
                     parsed_line = self.__parse_line(line,page_ndx,page_links)
                     
-                if parsed_line is not None:
-                    parsed_lines.append(parsed_line)
+                    if parsed_line is not None:
+                        parsed_lines.append(parsed_line)
                         
         self.__detect_headers(parsed_lines)
         sections = self.__build_sections (parsed_lines)
