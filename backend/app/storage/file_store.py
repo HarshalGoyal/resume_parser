@@ -32,11 +32,12 @@ class FileStore:
         with open(json_path, "r") as f:
             return json.load(f)
         
-    def save_file(self, session_id: str, uploaded_file_id: str, file_name: str, file_data: bytes):
+    def save_file(self, session_id: str, uploaded_file_id: str, file_name: str, file_data: bytes) -> str:
         logger.info(f"Saving file for session_id: {session_id}, uploaded_file_id: {uploaded_file_id}, file_name: {file_name}")
         session_path = self.create_session_directory(session_id, uploaded_file_id)
         file_path = session_path / file_name
         with open(file_path, "wb") as f:
             f.write(file_data)
         logger.debug(f"File saved at path: {file_path}")
+        return str(file_path)
  

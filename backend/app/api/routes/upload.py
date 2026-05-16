@@ -1,34 +1,10 @@
-from fastapi import APIRouter, File, UploadFile # type: ignore
-from ...core.logging import AppLogger
-from uuid import uuid4
-
-router = APIRouter(prefix="/resume", tags=['Resume upload'])
-
-@router.post("/upload")
-async def upload_resume(file : UploadFile = File(...)):
-    loggr = AppLogger("ResumeUploader")
-    loggr.info("Uploading resume...")
-    file_id = str(uuid4())
-    
-    if file.content_type not in ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"]:
-        loggr.error(f"Unsupported file type: {file.content_type} for file: {file.filename}")
-        return {"error": "Unsupported file type. Only PDF and DOCX are allowed."}
-    
-    else:
-        loggr.debug(f"Received file: {file.filename} with content type: {file.content_type} and size: {len(await file.read())} bytes, assigned file ID: {file_id}")
-        return {"message" : "resume uploaded successfully!", "file_id": file_id}
-from fastapi import (
-    APIRouter,
-    File,
-    UploadFile,
-    HTTPException
-)
-
+from fastapi import APIRouter,File,UploadFile,HTTPException #type: ignore
 from pathlib import Path
 from uuid import uuid4
 
 from app.core.logging import AppLogger
 from app.storage.session_repository import SessionRepository
+from app.services.resume_parsing_service import ResumeParsingService
 
 
 router = APIRouter(prefix="/resume", tags=["Resume upload"])
@@ -95,25 +71,24 @@ async def upload_resume(file: UploadFile = File(...)):
         f"Resume uploaded successfully... upload_id={upload_metadata['upload_id']}"
     )
 
+    try:
+        resume_parser = ResumeParsingService ()
+        parsed_document = await resume_parser.parse_resume (session_id = session_id,
+                                                                     upload_id  = upload_metadata["upload_id"],
+                                                                     file_path = upload_metadata["saved_file_path"])
+    except Exception as e:
+        
+        logger.error (f"failed to process file{str(e)}")
+        
+        raise HTTPException(status_code = 500, detail="Failed to extract the resume information")
+    
+    logger.info ("Resume parsed successfully")
     return {
 
-        "message": (
-            "Resume uploaded successfully"
-        ),
-
-        "session_id": (
-            upload_metadata["session_id"]
-        ),
-
-        "upload_id": (
-            upload_metadata["upload_id"]
-        ),
-
-        "status": (
-            upload_metadata["status"]
-        ),
-
-        "saved_file_path": (
-            upload_metadata["saved_file_path"]
-        )
+        "message": "Resume uploaded successfully!!",
+        "session_id": upload_metadata["session_id"],
+        "upload_id": upload_metadata["upload_id"],
+            
+        "status": "Doc tree generted",
+        "parsed_document": parsed_document
     }
