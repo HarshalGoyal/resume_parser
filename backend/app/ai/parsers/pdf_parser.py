@@ -1,7 +1,7 @@
 import fitz
 import re
 from typing import Optional, Dict
-from app.models.pared_document import ParsedDocument
+from app.models.parsed_document import ParsedDocument
 from app.models.document_line import DocumentLine
 from app.models.document_section import DocumentSection
 
