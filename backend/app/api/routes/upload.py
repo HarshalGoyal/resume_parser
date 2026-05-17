@@ -56,7 +56,7 @@ async def upload_resume(file: UploadFile = File(...)):
 
     logger.debug( f"Received file={file.filename} size={len(file_data)} bytes")
 
-    session_id = str(uuid4())
+    session_id = await session_repository.create_session()
 
     logger.info(f"Generated session_id={session_id}")
 
@@ -99,6 +99,5 @@ async def upload_resume(file: UploadFile = File(...)):
         "session_id": upload_metadata["session_id"],
         "upload_id": upload_metadata["upload_id"],
             
-        "status": "Doc tree generted",
-        "parsed_document": parsed_document
+        "status": "parsed"
     }
