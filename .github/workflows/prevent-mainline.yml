@@ -10,21 +10,29 @@ jobs:
     name: Prevent Direct Push
     runs-on: ubuntu-latest
     steps:
-      - name: Check commit authors
+      - name: Check commit author
+        env:
+          # The repository owner is the only identity allowed to push
+          # directly to mainline (everyone/everything else must open a PR).
+          ALLOWED_AUTHOR: "Harshal Goyal"
         run: |
-          AUTHOR_NAME=$(jq -r '.head_commit.author.name' $GITHUB_EVENT_PATH)
-          COMMITTER_NAME=$(jq -r '.head_commit.committer.name' $GITHUB_EVENT_PATH)
-          COAUTHORS=$(jq -r '.head_commit.message' $GITHUB_EVENT_PATH | grep -i "Co-authored-by" || true)
+          AUTHOR_NAME=$(jq -r '.head_commit.author.name' "$GITHUB_EVENT_PATH")
+          COMMITTER_NAME=$(jq -r '.head_commit.committer.name' "$GITHUB_EVENT_PATH")
+          COAUTHORS=$(jq -r '.head_commit.message' "$GITHUB_EVENT_PATH" \
+            | grep -i "co-authored-by" || true)
 
-          echo "Author: $AUTHOR_NAME"
-          echo "Committer: $COMMITTER_NAME"
-          echo "Co-authors: $COAUTHORS"
+          echo "Author:     $AUTHOR_NAME"
+          echo "Committer:  $COMMITTER_NAME"
+          echo "Co-authors: ${COAUTHORS:-<none>}"
 
-          if [ "$AUTHOR_NAME" = "HarshalGoyal" ] && [ -z "$COAUTHORS" ] && [ "$COMMITTER_NAME" = "HarshalGoyal" || "$COMMITTER_NAME" = "GitHub" ]; then
-            echo "✅ Single commit by HarshalGoyal via Github, skipping failure."
-
+          # Allow only when the head commit is authored solely by the owner and
+          # committed either by the owner or by GitHub (e.g. a squash-merge).
+          if [ "$AUTHOR_NAME" = "$ALLOWED_AUTHOR" ] \
+            && [ -z "$COAUTHORS" ] \
+            && { [ "$COMMITTER_NAME" = "$ALLOWED_AUTHOR" ] || [ "$COMMITTER_NAME" = "GitHub" ]; }; then
+            echo "✅ Head commit authored solely by $ALLOWED_AUTHOR — allowed."
             exit 0
-          else
-            echo "❌ Direct pushes to mainline are not allowed."
-            exit 1
           fi
+
+          echo "❌ Direct pushes to mainline are not allowed; open a pull request."
+          exit 1
