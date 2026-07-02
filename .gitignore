@@ -129,3 +129,9 @@ docker-data/
 # ============================================
 
 planning/
+
+# ============================================
+# Claude Code local settings (personal, per-machine)
+# ============================================
+
+.claude/settings.local.json
