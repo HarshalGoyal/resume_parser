@@ -1,103 +1,116 @@
-
-from fastapi import APIRouter,File,UploadFile,HTTPException #type: ignore
-from pathlib import Path
-from uuid import uuid4
+from fastapi import APIRouter, File, UploadFile, HTTPException  # type: ignore
 
 from app.core.logging import AppLogger
+from app.core.exceptions import BaseResumeException
 from app.storage.session_repository import SessionRepository
 from app.services.resume_parsing_service import ResumeParsingService
 from app.core.config import settings
+from app.utils.file_utils import sniff_file_type, SUPPORTED_EXTENSIONS
 
 
 router = APIRouter(prefix="/resume", tags=["Resume upload"])
 
 logger = AppLogger("ResumeUploader")
 
+# Shared, process-wide singletons. The parsing service is given the SAME
+# repository instance so its in-memory cache and stage updates are visible to
+# the upload path (previously each request built its own repo + cache).
 session_repository = SessionRepository()
-
-
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-
-STORAGE_ROOT = Path(settings.storage_path)
-
-STORAGE_ROOT.mkdir(parents=True, exist_ok=True)
+resume_parsing_service = ResumeParsingService(session_repository=session_repository)
 
 
 @router.post("/upload")
 async def upload_resume(file: UploadFile = File(...)):
-
     logger.info("Uploading resume...")
 
-    allowed_types = [
-
-        "application/pdf",
-
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-    ]
-
-    if file.content_type not in allowed_types:
-
+    # Reject oversized uploads BEFORE buffering the whole body into memory.
+    # Starlette populates UploadFile.size from the multipart part's length.
+    if file.size is not None and file.size > settings.upload_max_size:
         logger.error(
-            f"Unsupported file type: {file.content_type}")
-
+            f"File size {file.size} bytes exceeds maximum allowed "
+            f"size {settings.upload_max_size} bytes"
+        )
         raise HTTPException(
-            status_code=400,
-            detail=("Unsupported file type.Only PDF and DOCX are allowed.")
+            status_code=413,
+            detail=(
+                f"File size exceeds maximum allowed size of "
+                f"{settings.upload_max_size / 1024 / 1024:.2f} MB"
+            ),
         )
 
     file_data = await file.read()
 
+    # Defensive re-check in case .size was absent (chunked / no Content-Length).
     if len(file_data) > settings.upload_max_size:
-        logger.error(f"File size {len(file_data)} bytes exceeds maximum allowed size {settings.upload_max_size} bytes")
+        logger.error(
+            f"File size {len(file_data)} bytes exceeds maximum allowed "
+            f"size {settings.upload_max_size} bytes"
+        )
         raise HTTPException(
-            status_code=400,
-            detail=f"File size exceeds maximum allowed size of {settings.upload_max_size / 1024 / 1024:.2f} MB"
+            status_code=413,
+            detail=(
+                f"File size exceeds maximum allowed size of "
+                f"{settings.upload_max_size / 1024 / 1024:.2f} MB"
+            ),
         )
 
-    logger.debug( f"Received file={file.filename} size={len(file_data)} bytes")
+    # Authoritative type check via magic bytes — the client Content-Type header
+    # is untrusted and easily spoofed.
+    file_type = sniff_file_type(file_data)
+    if file_type not in SUPPORTED_EXTENSIONS:
+        logger.error(
+            f"Unsupported or spoofed file content "
+            f"(declared type={file.content_type})"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Only PDF and DOCX are allowed.",
+        )
+
+    logger.debug(
+        f"Received file={file.filename!r} type={file_type} "
+        f"size={len(file_data)} bytes"
+    )
 
     session_id = await session_repository.create_session()
-
     logger.info(f"Generated session_id={session_id}")
 
     try:
-
-        upload_metadata = (
-            await session_repository.create_upload(
-                session_id=session_id,
-                file_name=file.filename,
-                file_data=file_data
-            )
+        upload_metadata = await session_repository.create_upload(
+            session_id=session_id,
+            display_name=file.filename,
+            file_type=file_type,
+            file_data=file_data,
         )
-
     except Exception as e:
-
-        logger.error(f"Failed to create upload: {str(e)}" )
-
-        raise HTTPException(status_code=500,detail="Failed to upload resume")
-
+        logger.exception(f"Failed to create upload: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload resume")
 
     logger.info(
         f"Resume uploaded successfully... upload_id={upload_metadata['upload_id']}"
     )
 
     try:
-        resume_parser = ResumeParsingService ()
-        parsed_document = await resume_parser.parse_resume (session_id = session_id,
-                                                                     upload_id  = upload_metadata["upload_id"],
-                                                                     file_path = upload_metadata["saved_file_path"])
+        await resume_parsing_service.parse_resume(
+            session_id=session_id,
+            upload_id=upload_metadata["upload_id"],
+            file_path=upload_metadata["saved_file_path"],
+            file_type=file_type,
+        )
+    except BaseResumeException:
+        # Let the app-level handler translate structured exceptions into a
+        # proper error-code response.
+        raise
     except Exception as e:
-        
-        logger.error (f"failed to process file{str(e)}")
-        
-        raise HTTPException(status_code = 500, detail="Failed to extract the resume information")
-    
-    logger.info ("Resume parsed successfully")
-    return {
+        logger.exception(f"Failed to process file: {e}")
+        raise HTTPException(
+            status_code=500, detail="Failed to extract the resume information"
+        )
 
+    logger.info("Resume parsed successfully")
+    return {
         "message": "Resume uploaded successfully!!",
         "session_id": upload_metadata["session_id"],
         "upload_id": upload_metadata["upload_id"],
-            
-        "status": "parsed"
+        "status": "parsed",
     }

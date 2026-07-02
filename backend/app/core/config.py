@@ -1,11 +1,7 @@
 from typing import List
 
 from pydantic import Field, field_validator
-
-try:
-    from pydantic_settings import BaseSettings
-except ImportError:
-    from pydantic.settings import BaseSettings
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -53,6 +49,11 @@ class Settings(BaseSettings):
         default="INFO",
         description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
         alias="LOG_LEVEL"
+    )
+    log_file: str = Field(
+        default="backend_app.log",
+        description="Path to the rotating application log file",
+        alias="LOG_FILE"
     )
 
     class Config:
