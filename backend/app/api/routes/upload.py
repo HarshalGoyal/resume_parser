@@ -19,7 +19,7 @@ session_repository = SessionRepository()
 resume_parsing_service = ResumeParsingService(session_repository=session_repository)
 
 
-@router.post("/upload")
+@router.post("/upload", summary="Upload a PDF/DOCX resume and parse it")
 async def upload_resume(file: UploadFile = File(...)):
     logger.info("Uploading resume...")
 

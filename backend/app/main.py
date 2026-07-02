@@ -7,6 +7,7 @@ from .core.logging import AppLogger
 from .core.exceptions import BaseResumeException
 from .api.routes.health import router as health_router
 from .api.routes.upload import router as resume_router
+from .api.routes.info import router as info_router
 
 logger = AppLogger("App")
 
@@ -23,6 +24,7 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(resume_router)
+app.include_router(info_router)
 
 
 @app.exception_handler(BaseResumeException)
@@ -33,6 +35,6 @@ async def handle_resume_exception(request: Request, exc: BaseResumeException):
     return JSONResponse(status_code=exc.http_status_code, content=exc.to_dict())
 
 
-@app.get("/")
+@app.get("/", summary="Service liveness banner")
 async def root():
     return {"message": "Resume parser up and running!"}
