@@ -1,12 +1,14 @@
 import json
 
-from app.core.logging import AppLogger
+from ..models.resume_processing_stages import ResumeProcessingStages
 
 from app.ai.parsers.pdf_parser import PDFParser
 from app.models.resume_processing_stages import ResumeProcessingStages
 from app.services.resume_enrichment_service import ResumeEnrichmentService
 from app.storage.session_repository import SessionRepository
 from app.storage.file_store import FileStore
+from app.core.logging import AppLogger
+from app.models.resume_processing_stages import ResumeProcessingStages
 
 class ResumeParsingService:
     def __init__(self):
@@ -18,7 +20,7 @@ class ResumeParsingService:
         self.file_store = FileStore ()
         self.resume_enrichment_service = ResumeEnrichmentService()
 
-    async def parse_resume(self, file_path: str, session_id : str, upload_id : str):
+    async def parse_resume(self, file_path: str, session_id: str, upload_id: str):
         self.loggr.info(f"Parsing file_id: {upload_id}")
         await self.session_respositroy.update_stage (session_id= session_id, upload_id= upload_id,
                                                      stage=ResumeProcessingStages.PARSING)

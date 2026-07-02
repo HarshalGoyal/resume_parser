@@ -114,6 +114,10 @@ checkpoints/
 embeddings/
 vector_store/
 
+# ...but the application's domain-model source package is code, not an artifact.
+!backend/app/models/
+!backend/app/models/*.py
+
 # ============================================
 # Docker (Future)
 # ============================================
