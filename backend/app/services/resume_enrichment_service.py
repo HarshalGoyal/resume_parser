@@ -81,14 +81,14 @@ class ResumeEnrichmentService:
             if not SKILLS_SECTION_REGEX.search(section_name):
                 continue
 
-            # Work line by line so "Category: a, b, c" grouping is handled and
-            # the category label itself is not mistaken for a skill.
             line_texts = [l.text for l in section.lines] or section.content.split("\n")
-            for text in line_texts:
+            # Rejoin lines that wrapped mid-list (common in PDFs) so a token like
+            # "Low level socket programing" is not split across two entries.
+            for group in self.__group_skill_lines(line_texts):
                 # Drop a leading "Category:" label, keep only the list to its right.
-                if ":" in text:
-                    text = text.split(":", 1)[1]
-                for raw_token in split_top_level(text):
+                if ":" in group:
+                    group = group.split(":", 1)[1]
+                for raw_token in split_top_level(group):
                     name = clean_skill_token(raw_token)
                     if not name or not any(c.isalnum() for c in name):
                         continue
@@ -98,6 +98,24 @@ class ResumeEnrichmentService:
 
         return list(seen.values())
 
+    @staticmethod
+    def __group_skill_lines(line_texts: list[str]) -> list[str]:
+        """Merge wrapped continuation lines into their "Category:" line.
+
+        A line beginning with a short "Label:" is a new group; any following line
+        without such a label is a wrap of the previous line and is appended.
+        """
+        label_re = re.compile(r"^\s*[^:\n]{1,40}:\s*\S")
+        groups: list[str] = []
+        for text in line_texts:
+            if not text.strip():
+                continue
+            if label_re.match(text) or not groups:
+                groups.append(text.strip())
+            else:
+                groups[-1] = f"{groups[-1]} {text.strip()}"
+        return groups
+
     def __extract_work_ex(self, parsed_document: ParsedDocument) -> list[Experience]:
         experiences: list[Experience] = []
 
@@ -106,8 +124,9 @@ class ResumeEnrichmentService:
                 continue
 
             current: dict | None = None
-            for line in section.lines:
-                text = line.text.strip()
+            # Combine a date that was laid out on its own line with the title
+            # line above it (common in PDFs) so each job header carries its date.
+            for text, segments in self.__premerge_date_lines(section.lines):
                 if not text:
                     continue
 
@@ -115,7 +134,7 @@ class ResumeEnrichmentService:
                     # Start of a new job entry — flush the previous one first.
                     if current is not None:
                         experiences.append(self.__to_experience(current))
-                    title, company, duration = self.__parse_header(line)
+                    title, company, duration = self.__parse_header(text, segments)
                     current = {
                         "title": title,
                         "company": company,
@@ -125,25 +144,61 @@ class ResumeEnrichmentService:
                     continue
 
                 if current is not None:
-                    current["description"].append(strip_bullet(text))
+                    cleaned = strip_bullet(text)
+                    # Skip lines that are only a bullet/marker glyph (PDFs often
+                    # emit the bullet as its own line).
+                    if self.__is_marker_only(text) or not cleaned:
+                        continue
+                    current["description"].append(cleaned)
 
             if current is not None:
                 experiences.append(self.__to_experience(current))
 
         return experiences
 
-    def __parse_header(self, line) -> tuple[str | None, str | None, str | None]:
+    def __premerge_date_lines(self, lines) -> list[tuple[str, list[str]]]:
+        """Return (text, segments) pairs, merging a standalone date line into the
+        preceding line so it becomes a complete job header."""
+        result: list[tuple[str, list[str]]] = []
+        for line in lines:
+            text = line.text.strip()
+            if not text:
+                continue
+            segments = [s for s in (line.segments or []) if s]
+            if self.__is_date_only(text) and result:
+                prev_text, prev_segments = result[-1]
+                merged_segments = (prev_segments or [prev_text]) + [text]
+                result[-1] = (f"{prev_text}   {text}", merged_segments)
+            else:
+                result.append((text, segments))
+        return result
+
+    @staticmethod
+    def __is_date_only(text: str) -> bool:
+        match = DATE_RANGE_REGEX.search(text) or DATE_HEADER_REGEX.search(text)
+        if not match:
+            return False
+        residual = collapse_whitespace(text.replace(match.group(0), ""))
+        return len(residual) <= 2
+
+    @staticmethod
+    def __is_marker_only(text: str) -> bool:
+        return not re.sub(r"[•●◦‣⁃·*\-\s]", "", text)
+
+    def __parse_header(
+        self, text: str, segments: list[str]
+    ) -> tuple[str | None, str | None, str | None]:
         """Split a combined job-header line into (title, company, duration).
 
-        Relies on visual layout segments (multi-space/tab gaps) when available —
-        the common "Title    Company    Dates" arrangement — and falls back to
-        date-stripping + comma splitting when no gap structure exists.
+        Relies on visual layout segments (multi-space/tab gaps, or PDF column
+        gaps) when available — the common "Title    Company    Dates"
+        arrangement — and falls back to date-stripping + comma splitting when no
+        gap structure exists.
         """
-        text = line.text
         match = DATE_RANGE_REGEX.search(text) or DATE_HEADER_REGEX.search(text)
         duration = match.group(0).strip() if match else None
 
-        segments = [s for s in (getattr(line, "segments", None) or []) if s]
+        segments = [s for s in (segments or []) if s]
         non_date_segments = (
             [s for s in segments if not (match and match.group(0) in s)]
             if segments
