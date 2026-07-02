@@ -1,4 +1,4 @@
-from fastapi import APIRouter  # type: ignore[import]
+from fastapi import APIRouter
 from ...core.logging import AppLogger
 
 router = APIRouter (prefix="/health", tags=['Health Check'])

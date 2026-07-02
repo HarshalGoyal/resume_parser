@@ -16,7 +16,7 @@ def _doc(sections: dict[str, list[DocumentLine]]) -> ParsedDocument:
     built = {
         name: DocumentSection(
             name=name,
-            content="\n".join(l.text for l in lines),
+            content="\n".join(line.text for line in lines),
             lines=lines,
         )
         for name, lines in sections.items()
@@ -143,4 +143,4 @@ def test_contact_extraction_dedupes():
     info = _enrich(doc).contact_info
     assert info.emails == ["jane@example.com"]
     assert any("github.com/jane" in g for g in info.github_profiles)
-    assert any("linkedin.com/in/jane" in l for l in info.linkedin_profiles)
+    assert any("linkedin.com/in/jane" in p for p in info.linkedin_profiles)

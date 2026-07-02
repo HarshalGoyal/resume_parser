@@ -2,6 +2,7 @@ import asyncio
 
 from app.ai.parsers.pdf_parser import PDFParser
 from app.ai.parsers.docx_parser import DOCXParser
+from app.parsers import ParserProtocol
 from app.core.exceptions import InvalidFileFormatError
 from app.models.resume_processing_stages import ResumeProcessingStages
 from app.services.resume_enrichment_service import ResumeEnrichmentService
@@ -17,7 +18,10 @@ class ResumeParsingService:
 
         # Strategy registry keyed by canonical file type; both parsers return
         # the same ParsedDocument shape so enrichment is format-agnostic.
-        self.parsers = {"pdf": PDFParser(), "docx": DOCXParser()}
+        self.parsers: dict[str, ParserProtocol] = {
+            "pdf": PDFParser(),
+            "docx": DOCXParser(),
+        }
         # Reuse the caller's repository so cache + stage updates stay consistent
         # across the upload and parsing paths; fall back to a fresh one for
         # standalone use (e.g. tests).

@@ -81,7 +81,9 @@ class ResumeEnrichmentService:
             if not SKILLS_SECTION_REGEX.search(section_name):
                 continue
 
-            line_texts = [l.text for l in section.lines] or section.content.split("\n")
+            line_texts = [
+                line.text for line in section.lines
+            ] or section.content.split("\n")
             # Rejoin lines that wrapped mid-list (common in PDFs) so a token like
             # "Low level socket programing" is not split across two entries.
             for group in self.__group_skill_lines(line_texts):
@@ -205,6 +207,8 @@ class ResumeEnrichmentService:
             else []
         )
 
+        title: str | None
+        company: str | None
         if len(non_date_segments) >= 2:
             title = non_date_segments[0]
             company = " ".join(non_date_segments[1:])

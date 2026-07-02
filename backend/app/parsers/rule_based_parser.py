@@ -1,4 +1,3 @@
-import json
 from typing import TYPE_CHECKING
 from ..parsers import ParserInterface
 from ..models.parsed_document import ParsedDocument
@@ -6,7 +5,7 @@ from ..ai.parsers.pdf_parser import PDFParser
 from ..core.logging import AppLogger
 
 if TYPE_CHECKING:
-    from typing import Awaitable
+    pass
 
 logger = AppLogger("RuleBasedParser")
 

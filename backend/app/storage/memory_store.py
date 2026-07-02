@@ -1,4 +1,4 @@
-from typing import TypeVar, Generic, Any
+from typing import TypeVar, Generic
 
 from app.core.logging import AppLogger
 
