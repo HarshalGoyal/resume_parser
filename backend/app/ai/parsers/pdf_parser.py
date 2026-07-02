@@ -127,7 +127,7 @@ class PDFParser:
         
     def __build_sections(self,parsed_lines) -> Dict[str,DocumentSection]:
 
-        sections = {}
+        sections: dict[str, list[DocumentLine]] = {}
         current_section = "HEADER"
         sections[current_section] = []
         

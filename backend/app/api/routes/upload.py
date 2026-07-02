@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException  # type: ignore
+from fastapi import APIRouter, File, UploadFile, HTTPException
 
 from app.core.logging import AppLogger
 from app.core.exceptions import BaseResumeException
@@ -84,7 +84,7 @@ async def upload_resume(file: UploadFile = File(...)):
         )
     except Exception as e:
         logger.exception(f"Failed to create upload: {e}")
-        raise HTTPException(status_code=500, detail="Failed to upload resume")
+        raise HTTPException(status_code=500, detail="Failed to upload resume") from e
 
     logger.info(
         f"Resume uploaded successfully... upload_id={upload_metadata['upload_id']}"
@@ -105,7 +105,7 @@ async def upload_resume(file: UploadFile = File(...)):
         logger.exception(f"Failed to process file: {e}")
         raise HTTPException(
             status_code=500, detail="Failed to extract the resume information"
-        )
+        ) from e
 
     logger.info("Resume parsed successfully")
     return {

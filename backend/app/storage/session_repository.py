@@ -16,7 +16,7 @@ class SessionRepository:
 
     def __init__(self):
         logger.info("Initializing SessionRepository")
-        self.memory_store = MemoryStore()
+        self.memory_store: MemoryStore[dict] = MemoryStore()
         self.file_store = FileStore()
 
     async def create_session(self) -> str:

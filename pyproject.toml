@@ -1,0 +1,23 @@
+[tool.ruff]
+target-version = "py312"
+src = ["backend"]
+
+[tool.ruff.lint]
+# Correctness-focused gate: pyflakes (F) + real error-class pycodestyle (E7/E9)
+# + bugbear (B). Style-only rules stay out until the codebase is reformatted.
+select = ["F", "E7", "E9", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# B008: `File(...)`/`Depends(...)` in argument defaults is the FastAPI idiom.
+"backend/app/api/routes/*" = ["B008"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["backend/app"]
+mypy_path = "backend"
+explicit_package_bases = true
+ignore_missing_imports = true
+# Incremental adoption: gate on real type errors without requiring annotations
+# everywhere yet.
+check_untyped_defs = true
+warn_unused_ignores = true

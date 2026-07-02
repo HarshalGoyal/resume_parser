@@ -11,7 +11,6 @@ pydantic_core==2.46.4
 pydantic-settings==2.6.1
 PyMuPDF==1.27.2.3
 python-docx==1.1.2
-pytest==8.3.4
 python-dotenv==1.2.2
 python-multipart==0.0.27
 PyYAML==6.0.3
