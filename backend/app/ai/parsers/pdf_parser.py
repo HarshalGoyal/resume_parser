@@ -1,15 +1,23 @@
 import fitz
-import re
 from typing import Optional, Dict
 from app.models.parsed_document import ParsedDocument
 from app.models.document_line import DocumentLine
 from app.models.document_section import DocumentSection
-from app.utils.text_utils import looks_like_section_header
+from app.utils.text_utils import (
+    looks_like_section_header,
+    collapse_whitespace,
+    split_layout_segments,
+)
 
 
 from app.core.logging import AppLogger
 
 class PDFParser:
+    # A horizontal gap between spans wider than this many "em" (multiples of the
+    # font size) is treated as a column separation, e.g. "Title  Company  Dates"
+    # on one line. Word spaces are far narrower, so this generalises across PDFs.
+    GAP_EM = 1.0
+
     def __init__(self):
         self.loggr = AppLogger("PDFParser")
         self.loggr.info("Initialized PDFParser class for handling PDF parsing logic.")
@@ -55,36 +63,52 @@ class PDFParser:
         return page_links
     
     def __parse_line (self,line,page_index,page_links) -> Optional[DocumentLine]:
-        
-        line_text = ""
+
+        assembled = ""
         max_font_size = 0
         bold = False
         fonts = set()
+        prev_x1 = None
         line_rect = fitz.Rect (line["bbox"])
-        
+
         for span in line["spans"]:
-            
-            span_text = (self.__extract_span_text(span))            
-            line_text += span_text
-            max_font_size = max(max_font_size, span["size"])
+
+            span_text = self.__extract_span_text(span)
+            if not span_text:
+                continue
+
+            size = span.get("size", 12.0)
+            x0, _, x1, _ = span["bbox"]
+
+            # Large horizontal gaps mark column boundaries (Title/Company/Dates).
+            # Encode them as a whitespace gap so segment splitting recovers them,
+            # mirroring how multi-space gaps are handled for DOCX.
+            if prev_x1 is not None and (x0 - prev_x1) > size * self.GAP_EM:
+                assembled += "   "
+            assembled += span_text
+            prev_x1 = x1
+
+            max_font_size = max(max_font_size, size)
             fonts.add(span["font"])
-            
+
             if (self.__is_bold(span["font"])):
                 bold = True
-                
-        line_text = self.__normalize_text (line_text)
-        
-        if not line_text:
+
+        text = collapse_whitespace(assembled)
+
+        if not text:
             return None
 
+        segments = split_layout_segments(assembled)
+
         matched_links = []
-        
+
         for link in page_links:
-            
+
             if line_rect.intersects(link["rect"]):
                 matched_links.append(link["url"])
-        
-        return DocumentLine(text=line_text,font_size=round(max_font_size, 2),
+
+        return DocumentLine(text=text,segments=segments,font_size=round(max_font_size, 2),
                             bold=bold,fonts=list(fonts),bbox=list(line["bbox"]),
                             page=page_index + 1,links=matched_links)
     
@@ -139,7 +163,3 @@ class PDFParser:
         return any(x in font_name
                      for x in ["bold","black","heavy","semibold"]
                 )
-
-    def __normalize_text (self,text : str) -> str :
-        text = re.sub(r"\s+"," ", text)
-        return text.strip()
