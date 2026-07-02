@@ -5,7 +5,9 @@ import json
 from app.core.config import settings
 
 
-BASE_STORAGE_PATH: Path = Path(settings.storage_path)
+# Resolve to an absolute path at import so saved file paths do not depend on the
+# process working directory (previously stored as fragile relative paths).
+BASE_STORAGE_PATH: Path = Path(settings.storage_path).resolve()
 logger = AppLogger("FileStore")
 
 class FileStore:

@@ -4,6 +4,7 @@ from typing import Optional, Dict
 from app.models.parsed_document import ParsedDocument
 from app.models.document_line import DocumentLine
 from app.models.document_section import DocumentSection
+from app.utils.text_utils import looks_like_section_header
 
 
 from app.core.logging import AppLogger
@@ -94,9 +95,11 @@ class PDFParser:
 
         for line in parsed_lines:
 
-            line.is_header = (line.font_size > avg_font_size + 1 
-                                        and
-                              line.bold and len(line.text) < 50)
+            larger_bold = (line.font_size > avg_font_size + 1
+                           and line.bold and len(line.text) < 50)
+            # Also treat generic section conventions (keyword / all-caps short
+            # line) as headers so detection is consistent with the DOCX path.
+            line.is_header = larger_bold or looks_like_section_header(line.text)
         
     def __build_sections(self,parsed_lines) -> Dict[str,DocumentSection]:
 
