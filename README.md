@@ -128,11 +128,25 @@ curl -X POST -H 'Content-Type: application/json' \
      http://localhost:3030/jd/match
 ```
 
-Configuration is environment-driven (`.env` supported): `STORAGE_PATH`,
-`UPLOAD_MAX_SIZE`, `LOG_LEVEL`, `LOG_FILE`, `ALLOWED_HOSTS`, and for the AI
-endpoints `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` — see
-`backend/app/core/config.py`. AI endpoints return 503 until a provider is
-configured.
+### Enabling the AI endpoints
+
+```bash
+cp .env.example .env        # then paste your API key(s) into .env
+pip install langchain-anthropic   # or -openai / -google-genai / -aws
+
+# Activate a provider at runtime - no restart needed:
+curl -X POST -H 'Content-Type: application/json' \
+     -d '{"provider":"anthropic"}' http://localhost:3030/llm/activate
+curl http://localhost:3030/llm/providers   # inspect status of all providers
+```
+
+Providers: `anthropic`, `openai`, `google`, `bedrock` (AWS credential chain),
+`fake` (dev/testing). Pass `"model": "..."` in the activate body to override
+the provider's default model. Alternatively set `LLM_PROVIDER` in `.env` as
+the startup default. AI endpoints return 503 until a provider is active.
+
+Other settings (see `backend/app/core/config.py` / `.env.example`):
+`STORAGE_PATH`, `UPLOAD_MAX_SIZE`, `LOG_LEVEL`, `LOG_FILE`, `ALLOWED_HOSTS`.
 
 ### Tests & quality gates
 

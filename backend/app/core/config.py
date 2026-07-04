@@ -67,8 +67,23 @@ class Settings(BaseSettings):
     )
     llm_api_key: str = Field(
         default="",
-        description="API key for the LLM provider (never logged)",
+        description="Generic API key override for the active LLM provider (never logged)",
         alias="LLM_API_KEY"
+    )
+    anthropic_api_key: str = Field(
+        default="",
+        description="API key used when the Anthropic provider is active",
+        alias="ANTHROPIC_API_KEY"
+    )
+    openai_api_key: str = Field(
+        default="",
+        description="API key used when the OpenAI provider is active",
+        alias="OPENAI_API_KEY"
+    )
+    google_api_key: str = Field(
+        default="",
+        description="API key used when the Google/Gemini provider is active",
+        alias="GOOGLE_API_KEY"
     )
     llm_fake_response: str = Field(
         default="{}",
