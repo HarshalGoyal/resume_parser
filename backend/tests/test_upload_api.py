@@ -58,13 +58,18 @@ def test_upload_pdf_end_to_end(client):
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "parsed"
+    # Parsing is queued to a background task; TestClient runs background
+    # tasks before returning, so artifacts exist by the time we check.
+    assert body["status"] == "queued"
 
     session_dir = (
         Path(settings.storage_path).resolve() / body["session_id"] / body["upload_id"]
     )
     for artefact in ("metadata.json", "document_tree.json", "resume_extracted.json"):
         assert (session_dir / artefact).exists(), f"missing {artefact}"
+    # Status endpoint reflects completion.
+    status = client.get(body["links"]["status"]).json()
+    assert status["status"] == "parsed"
 
 
 def test_upload_docx_end_to_end(client):
@@ -80,4 +85,6 @@ def test_upload_docx_end_to_end(client):
         },
     )
     assert response.status_code == 200
-    assert response.json()["status"] == "parsed"
+    body = response.json()
+    assert body["status"] == "queued"
+    assert client.get(body["links"]["status"]).json()["status"] == "parsed"

@@ -1,7 +1,6 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException
+from fastapi import APIRouter, BackgroundTasks, File, UploadFile, HTTPException
 
 from app.core.logging import AppLogger
-from app.core.exceptions import BaseResumeException
 from app.api.deps import session_repository, resume_parsing_service
 from app.core.config import settings
 from app.schemas.response_schema import UploadAccepted, UploadLinks
@@ -13,12 +12,27 @@ router = APIRouter(prefix="/resume", tags=["Resume upload"])
 logger = AppLogger("ResumeUploader")
 
 
+async def _parse_in_background(session_id: str, upload_id: str, file_path: str, file_type: str):
+    """Run parsing after the upload response is sent; failures are recorded in
+    the upload's metadata so clients see them via the status endpoint."""
+    try:
+        await resume_parsing_service.parse_resume(
+            session_id=session_id,
+            upload_id=upload_id,
+            file_path=file_path,
+            file_type=file_type,
+        )
+    except Exception as e:
+        logger.exception(f"Background parse failed for upload {upload_id}: {e}")
+        await session_repository.mark_failed(session_id, upload_id, str(e))
+
+
 @router.post(
     "/upload",
     response_model=UploadAccepted,
-    summary="Upload a PDF/DOCX resume and parse it",
+    summary="Upload a PDF/DOCX resume; parsing runs in the background",
 )
-async def upload_resume(file: UploadFile = File(...)):
+async def upload_resume(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
     logger.info("Uploading resume...")
 
     # Reject oversized uploads BEFORE buffering the whole body into memory.
@@ -88,29 +102,21 @@ async def upload_resume(file: UploadFile = File(...)):
         f"Resume uploaded successfully... upload_id={upload_metadata['upload_id']}"
     )
 
-    try:
-        await resume_parsing_service.parse_resume(
-            session_id=session_id,
-            upload_id=upload_metadata["upload_id"],
-            file_path=upload_metadata["saved_file_path"],
-            file_type=file_type,
-        )
-    except BaseResumeException:
-        # Let the app-level handler translate structured exceptions into a
-        # proper error-code response.
-        raise
-    except Exception as e:
-        logger.exception(f"Failed to process file: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to extract the resume information"
-        ) from e
+    # Parsing runs after the response is sent; clients poll the status link
+    # and fetch the result link once status reaches "parsed".
+    background_tasks.add_task(
+        _parse_in_background,
+        session_id=session_id,
+        upload_id=upload_metadata["upload_id"],
+        file_path=upload_metadata["saved_file_path"],
+        file_type=file_type,
+    )
 
-    logger.info("Resume parsed successfully")
     base = f"/resume/{session_id}/{upload_metadata['upload_id']}"
     return UploadAccepted(
-        message="Resume uploaded successfully!!",
+        message="Resume uploaded; parsing has been queued.",
         session_id=upload_metadata["session_id"],
         upload_id=upload_metadata["upload_id"],
-        status="parsed",
+        status="queued",
         links=UploadLinks(result=base, status=f"{base}/status"),
     )

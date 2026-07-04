@@ -6,13 +6,14 @@ from app.parsers import ParserProtocol
 from app.core.exceptions import InvalidFileFormatError
 from app.models.resume_processing_stages import ResumeProcessingStages
 from app.services.resume_enrichment_service import ResumeEnrichmentService
+from app.storage.base import SessionRepositoryProtocol
 from app.storage.session_repository import SessionRepository
 from app.storage.file_store import FileStore
 from app.core.logging import AppLogger
 
 
 class ResumeParsingService:
-    def __init__(self, session_repository: SessionRepository | None = None):
+    def __init__(self, session_repository: SessionRepositoryProtocol | None = None):
         self.logger = AppLogger("ResumeParsingService")
         self.logger.info("Initialized ResumeParsingService for resume parsing.")
 
