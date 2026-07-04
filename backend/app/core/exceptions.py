@@ -311,6 +311,31 @@ class ValidationFailedError(ServiceException):
         super().__init__(message, details)
 
 
+class LLMNotConfiguredError(ServiceException):
+    """Raised when an AI feature is used but no LLM provider is configured."""
+
+    error_code: str = "SRVCE_003"
+    http_status_code: int = status.HTTP_503_SERVICE_UNAVAILABLE
+
+    def __init__(self, provider: str, **kwargs: Any) -> None:
+        message = (
+            f"LLM provider '{provider}' is not available. "
+            "Set LLM_PROVIDER to enable AI evaluation."
+        )
+        super().__init__(message, {"provider": provider, **kwargs})
+
+
+class EvaluationFailedError(ServiceException):
+    """Raised when the LLM response cannot be parsed into a valid result."""
+
+    error_code: str = "SRVCE_004"
+    http_status_code: int = status.HTTP_502_BAD_GATEWAY
+
+    def __init__(self, step: str, reason: str, **kwargs: Any) -> None:
+        message = f"AI evaluation failed at '{step}': {reason}"
+        super().__init__(message, {"step": step, "reason": reason, **kwargs})
+
+
 class APIException(BaseResumeException):
     """Base exception for API-level errors."""
 

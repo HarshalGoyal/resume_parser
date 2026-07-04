@@ -103,6 +103,24 @@ class SessionRepository:
         except FileNotFoundError:
             return None
 
+    async def save_evaluation(
+        self, session_id: str, upload_id: str, evaluation: dict
+    ) -> None:
+        """Persist an AI evaluation next to the upload and record it in the
+        upload's metadata (evaluation_path)."""
+        await asyncio.to_thread(
+            self.file_store.save_json,
+            session_id=session_id,
+            uploaded_file_id=upload_id,
+            file_name="evaluation.json",
+            data=evaluation,
+        )
+        metadata = await self.get_upload(session_id, upload_id)
+        if metadata is not None:
+            metadata["evaluation_path"] = "evaluation.json"
+            metadata["updated_at"] = datetime.now().isoformat()
+            await self.__persist_metadata(session_id, upload_id, metadata)
+
     async def update_stage(
         self, session_id: str, upload_id: str, stage: ResumeProcessingStages
     ) -> dict | None:
