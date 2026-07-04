@@ -7,6 +7,7 @@ from .core.logging import AppLogger
 from .core.exceptions import BaseResumeException
 from .api.routes.health import router as health_router
 from .api.routes.upload import router as resume_router
+from .api.routes.results import router as results_router
 from .api.routes.info import router as info_router
 
 logger = AppLogger("App")
@@ -24,6 +25,7 @@ app.add_middleware(
 
 app.include_router(health_router)
 app.include_router(resume_router)
+app.include_router(results_router)
 app.include_router(info_router)
 
 
