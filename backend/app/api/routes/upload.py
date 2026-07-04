@@ -2,9 +2,9 @@ from fastapi import APIRouter, File, UploadFile, HTTPException
 
 from app.core.logging import AppLogger
 from app.core.exceptions import BaseResumeException
-from app.storage.session_repository import SessionRepository
-from app.services.resume_parsing_service import ResumeParsingService
+from app.api.deps import session_repository, resume_parsing_service
 from app.core.config import settings
+from app.schemas.response_schema import UploadAccepted, UploadLinks
 from app.utils.file_utils import sniff_file_type, SUPPORTED_EXTENSIONS
 
 
@@ -12,14 +12,12 @@ router = APIRouter(prefix="/resume", tags=["Resume upload"])
 
 logger = AppLogger("ResumeUploader")
 
-# Shared, process-wide singletons. The parsing service is given the SAME
-# repository instance so its in-memory cache and stage updates are visible to
-# the upload path (previously each request built its own repo + cache).
-session_repository = SessionRepository()
-resume_parsing_service = ResumeParsingService(session_repository=session_repository)
 
-
-@router.post("/upload", summary="Upload a PDF/DOCX resume and parse it")
+@router.post(
+    "/upload",
+    response_model=UploadAccepted,
+    summary="Upload a PDF/DOCX resume and parse it",
+)
 async def upload_resume(file: UploadFile = File(...)):
     logger.info("Uploading resume...")
 
@@ -108,9 +106,11 @@ async def upload_resume(file: UploadFile = File(...)):
         ) from e
 
     logger.info("Resume parsed successfully")
-    return {
-        "message": "Resume uploaded successfully!!",
-        "session_id": upload_metadata["session_id"],
-        "upload_id": upload_metadata["upload_id"],
-        "status": "parsed",
-    }
+    base = f"/resume/{session_id}/{upload_metadata['upload_id']}"
+    return UploadAccepted(
+        message="Resume uploaded successfully!!",
+        session_id=upload_metadata["session_id"],
+        upload_id=upload_metadata["upload_id"],
+        status="parsed",
+        links=UploadLinks(result=base, status=f"{base}/status"),
+    )

@@ -90,6 +90,19 @@ class SessionRepository:
         self.__cache(session_id, upload_id, metadata)
         return metadata
 
+    async def get_extraction(self, session_id: str, upload_id: str) -> dict | None:
+        """Read the enriched extraction result (resume_extracted.json), or None
+        if the upload doesn't exist or hasn't been parsed yet."""
+        try:
+            return await asyncio.to_thread(
+                self.file_store.read_json,
+                session_id=session_id,
+                uploaded_file_id=upload_id,
+                file_name="resume_extracted.json",
+            )
+        except FileNotFoundError:
+            return None
+
     async def update_stage(
         self, session_id: str, upload_id: str, stage: ResumeProcessingStages
     ) -> dict | None:
