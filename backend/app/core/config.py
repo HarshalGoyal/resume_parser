@@ -55,6 +55,26 @@ class Settings(BaseSettings):
         description="Path to the rotating application log file",
         alias="LOG_FILE"
     )
+    llm_provider: str = Field(
+        default="",
+        description="LLM provider for AI evaluation ('' = disabled; 'fake' for tests)",
+        alias="LLM_PROVIDER"
+    )
+    llm_model: str = Field(
+        default="",
+        description="Model identifier passed to the LLM provider",
+        alias="LLM_MODEL"
+    )
+    llm_api_key: str = Field(
+        default="",
+        description="API key for the LLM provider (never logged)",
+        alias="LLM_API_KEY"
+    )
+    llm_fake_response: str = Field(
+        default="{}",
+        description="Canned response used by the 'fake' provider (tests/dev only)",
+        alias="LLM_FAKE_RESPONSE"
+    )
 
     class Config:
         """Pydantic configuration for Settings."""
