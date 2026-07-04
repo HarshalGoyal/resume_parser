@@ -108,6 +108,17 @@ class Settings(BaseSettings):
         description="How often the TTL cleanup job runs (0 disables the loop)",
         alias="CLEANUP_INTERVAL_MINUTES"
     )
+    embeddings_provider: str = Field(
+        default="",
+        description="Embeddings backend for peer benchmarking "
+                    "(fake | openai | google | bedrock; blank = disabled)",
+        alias="EMBEDDINGS_PROVIDER"
+    )
+    embeddings_model: str = Field(
+        default="",
+        description="Embeddings model override (blank = provider default)",
+        alias="EMBEDDINGS_MODEL"
+    )
 
     class Config:
         """Pydantic configuration for Settings."""

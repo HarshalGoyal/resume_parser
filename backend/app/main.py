@@ -18,6 +18,7 @@ from .api.routes.results import router as results_router
 from .api.routes.evaluation import router as evaluation_router
 from .api.routes.jd import router as jd_router
 from .api.routes.llm_config import router as llm_config_router
+from .api.routes.benchmark import router as benchmark_router
 from .api.routes.info import router as info_router
 
 logger = AppLogger("App")
@@ -50,6 +51,7 @@ app.include_router(results_router)
 app.include_router(evaluation_router)
 app.include_router(jd_router)
 app.include_router(llm_config_router)
+app.include_router(benchmark_router)
 app.include_router(info_router)
 
 

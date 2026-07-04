@@ -19,7 +19,7 @@ The platform will ultimately support:
 | **Resume parsing** | Extract raw text, sections, skills, experience, education, and keywords from uploaded resumes |
 | **AI evaluation** | Strengths, weaknesses, ATS-friendliness, readability, resume quality, career positioning |
 | **JD comparison** | Match percentage, missing skills, role alignment, improvement suggestions against a job description |
-| **Peer benchmarking** | Compare candidates with similar experience, tech stack, and target role (evolving into embedding-driven similarity) |
+| **Peer benchmarking** | Embedding-driven similarity: compare candidates with similar experience, tech stack, and target role |
 
 Longer-term directions: career-trajectory analysis, interview preparation,
 GitHub/portfolio analysis, recruiter simulation, personalized learning
@@ -60,7 +60,15 @@ What is implemented and tested today:
 - **Pluggable metadata storage** — JSON file store by default; set
   `DATABASE_URL` (SQLite/Postgres via SQLAlchemy) to keep session metadata in
   a database while file artifacts stay on disk.
-- **Quality gates** — 93 tests (unit, synthetic, end-to-end) plus ruff, mypy,
+- **Peer benchmarking** — `POST /resume/{…}/{…}/index` adds a candidate to the
+  vector index (embeddings via `EMBEDDINGS_PROVIDER`: openai/google/bedrock,
+  or the offline `fake`); `GET …/similar` returns the most similar indexed
+  candidates with shared-skill and skill-gap analysis. The index is
+  file-backed behind a protocol seam (pgvector/Qdrant can slot in later).
+- **Persona evaluation panel** — `POST /resume/{…}/{…}/panel` runs three
+  independent LLM personas (technical recruiter, ATS auditor, hiring manager)
+  in parallel over the parsed resume and aggregates their scored verdicts.
+- **Quality gates** — 102 tests (unit, synthetic, end-to-end) plus ruff, mypy,
   and pytest enforced in CI on every PR.
 
 Peer benchmarking and a real LLM provider adapter are the main capabilities
@@ -133,6 +141,9 @@ curl -X POST -F 'file=@resume.pdf' http://localhost:3030/resume/upload
 curl http://localhost:3030/resume/<session_id>/<upload_id>          # extraction
 curl http://localhost:3030/resume/<session_id>/<upload_id>/status   # stage
 curl -X POST http://localhost:3030/resume/<session_id>/<upload_id>/evaluate
+curl -X POST http://localhost:3030/resume/<session_id>/<upload_id>/panel
+curl -X POST http://localhost:3030/resume/<session_id>/<upload_id>/index
+curl http://localhost:3030/resume/<session_id>/<upload_id>/similar?top_k=5
 curl -X POST -H 'Content-Type: application/json' \
      -d '{"session_id":"...","upload_id":"...","jd_text":"..."}' \
      http://localhost:3030/jd/match
@@ -183,7 +194,8 @@ small, reviewable PRs.
 | **2 — Results API + DTOs** | `GET` endpoints for parse results, schema layer separating wire format from domain models | ✅ done |
 | **3 — AI evaluation** | `LLMProvider` interface, resume evaluator, JD matcher, prompt versioning, token/cost tracking | ✅ done (real provider adapter pending) |
 | **4 — Persistence + scale** | Background parsing, TTL cleanup, API-key auth, SQL metadata storage (SQLite/Postgres), request IDs + metrics | ✅ done |
-| **5 — Intelligence** | Embedding-based peer benchmarking, vector search, agentic evaluators (recruiter / ATS / hiring-manager personas) | next |
+| **5 — Intelligence** | Embedding-based peer benchmarking, vector search, persona evaluators (recruiter / ATS / hiring-manager) | ✅ done |
+| **Future** | Queue-based workers at volume, pgvector/Qdrant index, career-trajectory analysis, interview prep, GitHub/portfolio analysis | ideas |
 
 ## 6. Primary Technical Goal
 
