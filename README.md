@@ -38,13 +38,23 @@ What is implemented and tested today:
   info, skills (category-aware, punctuation-safe), and work experience
   (title/company/dates recovered from visual column gaps).
 - **Session storage** — cache-aside repository over per-session JSON + file
-  artifacts (`metadata.json`, `document_tree.json`, `resume_extracted.json`).
+  artifacts (`metadata.json`, `document_tree.json`, `resume_extracted.json`,
+  `evaluation.json`).
+- **Results API** — `GET /resume/{session_id}/{upload_id}` (extraction) and
+  `…/status` (processing stage), with a `schemas/` DTO layer owning the wire
+  format; upload responses include ready-to-follow result/status links.
+- **AI evaluation & JD matching** — `POST /resume/{…}/{…}/evaluate` and
+  `POST /jd/match`, built on a provider-agnostic `LLMProvider` interface with
+  versioned prompts, JSON-validated outputs, token tracking, and
+  prompt-injection fencing of document text. A concrete provider is selected
+  via `LLM_PROVIDER` config (returns 503 until one is configured; a
+  deterministic fake provider backs tests and local development).
 - `GET /info` — self-describing API index with a curl example per endpoint.
-- **Quality gates** — 42 tests (unit, synthetic, end-to-end) plus ruff, mypy,
+- **Quality gates** — 58 tests (unit, synthetic, end-to-end) plus ruff, mypy,
   and pytest enforced in CI on every PR.
 
-AI evaluation, JD comparison, and benchmarking are **designed but not yet
-implemented** (see Roadmap).
+Peer benchmarking and a real LLM provider adapter are the main capabilities
+**not yet implemented** (see Roadmap).
 
 ## 3. Architecture
 
@@ -109,16 +119,25 @@ cd backend && python ../run.py         # or: uvicorn app.main:app --port 3030
 # 3. Explore
 curl http://localhost:3030/info        # lists every endpoint with curl examples
 curl -X POST -F 'file=@resume.pdf' http://localhost:3030/resume/upload
+# response includes links.result and links.status:
+curl http://localhost:3030/resume/<session_id>/<upload_id>          # extraction
+curl http://localhost:3030/resume/<session_id>/<upload_id>/status   # stage
+curl -X POST http://localhost:3030/resume/<session_id>/<upload_id>/evaluate
+curl -X POST -H 'Content-Type: application/json' \
+     -d '{"session_id":"...","upload_id":"...","jd_text":"..."}' \
+     http://localhost:3030/jd/match
 ```
 
 Configuration is environment-driven (`.env` supported): `STORAGE_PATH`,
-`UPLOAD_MAX_SIZE`, `LOG_LEVEL`, `LOG_FILE`, `ALLOWED_HOSTS` — see
-`backend/app/core/config.py`.
+`UPLOAD_MAX_SIZE`, `LOG_LEVEL`, `LOG_FILE`, `ALLOWED_HOSTS`, and for the AI
+endpoints `LLM_PROVIDER` / `LLM_MODEL` / `LLM_API_KEY` — see
+`backend/app/core/config.py`. AI endpoints return 503 until a provider is
+configured.
 
 ### Tests & quality gates
 
 ```bash
-pytest -q            # 42 tests: unit, synthetic, API end-to-end
+pytest -q            # 58 tests: unit, synthetic, API end-to-end
 ruff check backend   # lint (correctness rules)
 mypy                 # type-check
 ```
@@ -134,9 +153,9 @@ small, reviewable PRs.
 |---|---|---|
 | **0 — Stabilize** | Security (traversal, magic bytes, size limits), consistent state, non-blocking I/O, exception wiring | ✅ done |
 | **1 — Test + CI** | pytest suite, fixtures, ruff/mypy/pytest gate | ✅ done |
-| **2 — Results API + DTOs** | `GET` endpoints for parse results, schema layer separating wire format from domain models | next |
-| **3 — AI evaluation** | `LLMProvider` interface, resume evaluator, JD matcher, prompt versioning, token/cost tracking | planned |
-| **4 — Persistence + scale** | Postgres + object storage behind existing interfaces, background workers, TTL cleanup, observability | planned |
+| **2 — Results API + DTOs** | `GET` endpoints for parse results, schema layer separating wire format from domain models | ✅ done |
+| **3 — AI evaluation** | `LLMProvider` interface, resume evaluator, JD matcher, prompt versioning, token/cost tracking | ✅ done (real provider adapter pending) |
+| **4 — Persistence + scale** | Postgres + object storage behind existing interfaces, background workers, TTL cleanup, auth, observability | next |
 | **5 — Intelligence** | Embedding-based peer benchmarking, vector search, agentic evaluators (recruiter / ATS / hiring-manager personas) | future |
 
 ## 6. Primary Technical Goal
