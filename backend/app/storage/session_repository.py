@@ -153,6 +153,13 @@ class SessionRepository:
         logger.error(f"Marked upload as failed upload_id={upload_id}")
         return metadata
 
+    async def purge_expired(self, ttl_seconds: float) -> int:
+        """Metadata lives inside the session directories, which the cleanup
+        service removes directly - only the in-memory cache needs clearing so
+        deleted sessions don't linger there."""
+        self.memory_store = MemoryStore()
+        return 0
+
     async def __persist_metadata(
         self, session_id: str, upload_id: str, metadata: dict
     ) -> None:

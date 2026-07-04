@@ -246,7 +246,7 @@ class ResumeParsingFailedError(ServiceException):
     """Raised when resume parsing service operation fails."""
 
     error_code: str = "SRVCE_001"
-    http_status_code: int = status.HTTP_422_UNPROCESSABLE_ENTITY
+    http_status_code: int = status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def __init__(
         self,

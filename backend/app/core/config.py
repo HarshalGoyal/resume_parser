@@ -90,6 +90,24 @@ class Settings(BaseSettings):
         description="Canned response used by the 'fake' provider (tests/dev only)",
         alias="LLM_FAKE_RESPONSE"
     )
+    api_key: str = Field(
+        default="",
+        description="If set, all API endpoints (except health/docs) require this "
+                    "value in the X-API-Key header",
+        alias="API_KEY"
+    )
+    database_url: str = Field(
+        default="",
+        description="SQLAlchemy async URL for session metadata "
+                    "(e.g. sqlite+aiosqlite:///sessions.db or "
+                    "postgresql+asyncpg://...). Blank = JSON file store.",
+        alias="DATABASE_URL"
+    )
+    cleanup_interval_minutes: int = Field(
+        default=60,
+        description="How often the TTL cleanup job runs (0 disables the loop)",
+        alias="CLEANUP_INTERVAL_MINUTES"
+    )
 
     class Config:
         """Pydantic configuration for Settings."""

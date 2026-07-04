@@ -31,6 +31,9 @@ What is implemented and tested today:
 
 - `POST /resume/upload` — accepts **PDF and DOCX**, validated by **magic
   bytes** (never the client's Content-Type), size-limited before buffering.
+  Parsing runs **in the background**: the response returns immediately with
+  result/status links, and clients poll `…/status` (failures are recorded
+  there with an error message).
 - **Structural parsing** — PyMuPDF (PDF) and python-docx (DOCX) parsers emit a
   shared `ParsedDocument` tree (sections → lines, with layout segments), so
   downstream logic is format-agnostic.
@@ -50,7 +53,14 @@ What is implemented and tested today:
   via `LLM_PROVIDER` config (returns 503 until one is configured; a
   deterministic fake provider backs tests and local development).
 - `GET /info` — self-describing API index with a curl example per endpoint.
-- **Quality gates** — 58 tests (unit, synthetic, end-to-end) plus ruff, mypy,
+- **Operational hardening** — optional **API-key auth** (`API_KEY` +
+  `X-API-Key` header; health/docs exempt), **TTL cleanup** of expired sessions
+  (`SESSION_TIMEOUT_MINUTES`, background job), request IDs + access logging,
+  and Prometheus **`/metrics`**.
+- **Pluggable metadata storage** — JSON file store by default; set
+  `DATABASE_URL` (SQLite/Postgres via SQLAlchemy) to keep session metadata in
+  a database while file artifacts stay on disk.
+- **Quality gates** — 93 tests (unit, synthetic, end-to-end) plus ruff, mypy,
   and pytest enforced in CI on every PR.
 
 Peer benchmarking and a real LLM provider adapter are the main capabilities
@@ -65,7 +75,7 @@ FastAPI API layer            (routes: upload, info, health)
   ↓
 Resume processing pipeline   (structural parse → enrichment)
   ↓
-Session repository           (in-memory cache ⇄ file store)
+Session repository           (file store by default; SQL via DATABASE_URL)
 ```
 
 ```text
@@ -146,7 +156,10 @@ the provider's default model. Alternatively set `LLM_PROVIDER` in `.env` as
 the startup default. AI endpoints return 503 until a provider is active.
 
 Other settings (see `backend/app/core/config.py` / `.env.example`):
-`STORAGE_PATH`, `UPLOAD_MAX_SIZE`, `LOG_LEVEL`, `LOG_FILE`, `ALLOWED_HOSTS`.
+`API_KEY` (enables X-API-Key auth), `DATABASE_URL` (SQL metadata storage),
+`SESSION_TIMEOUT_MINUTES` / `CLEANUP_INTERVAL_MINUTES` (retention),
+`HOST` / `PORT` / `RELOAD` (server), `STORAGE_PATH`, `UPLOAD_MAX_SIZE`,
+`LOG_LEVEL`, `LOG_FILE`, `ALLOWED_HOSTS`.
 
 ### Tests & quality gates
 
@@ -169,8 +182,8 @@ small, reviewable PRs.
 | **1 — Test + CI** | pytest suite, fixtures, ruff/mypy/pytest gate | ✅ done |
 | **2 — Results API + DTOs** | `GET` endpoints for parse results, schema layer separating wire format from domain models | ✅ done |
 | **3 — AI evaluation** | `LLMProvider` interface, resume evaluator, JD matcher, prompt versioning, token/cost tracking | ✅ done (real provider adapter pending) |
-| **4 — Persistence + scale** | Postgres + object storage behind existing interfaces, background workers, TTL cleanup, auth, observability | next |
-| **5 — Intelligence** | Embedding-based peer benchmarking, vector search, agentic evaluators (recruiter / ATS / hiring-manager personas) | future |
+| **4 — Persistence + scale** | Background parsing, TTL cleanup, API-key auth, SQL metadata storage (SQLite/Postgres), request IDs + metrics | ✅ done |
+| **5 — Intelligence** | Embedding-based peer benchmarking, vector search, agentic evaluators (recruiter / ATS / hiring-manager personas) | next |
 
 ## 6. Primary Technical Goal
 
