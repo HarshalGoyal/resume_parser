@@ -317,12 +317,14 @@ class LLMNotConfiguredError(ServiceException):
     error_code: str = "SRVCE_003"
     http_status_code: int = status.HTTP_503_SERVICE_UNAVAILABLE
 
-    def __init__(self, provider: str, **kwargs: Any) -> None:
+    def __init__(self, provider: str, hint: str = "", **kwargs: Any) -> None:
         message = (
             f"LLM provider '{provider}' is not available. "
             "Set LLM_PROVIDER to enable AI evaluation."
         )
-        super().__init__(message, {"provider": provider, **kwargs})
+        if hint:
+            message += f" ({hint})"
+        super().__init__(message, {"provider": provider, "hint": hint, **kwargs})
 
 
 class EvaluationFailedError(ServiceException):
